@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Generic TCG System</title>
     <style>
         body {
@@ -10,8 +10,10 @@
             margin: 0;
             padding: 0;
             text-align: center;
-            -webkit-user-select: none;
+            -webkit-touch-callout: none; /* 長押し選択防止 */
+            -webkit-user-select: none;   /* ユーザー選択防止 */
             user-select: none;
+            touch-action: manipulation; /* ダブルタップズーム軽減 */
         }
 
         h1 {
@@ -36,15 +38,18 @@
         .field, .hand, .deck, .graveyard, .exile, .memo, .topCard, .bottomCard {
             border: 1px solid black;
             padding: 10px;
-            position: relative; 
+            position: relative;
             overflow: auto;
         }
 
         .field {
             grid-area: field;
-            height: 450px; 
+            height: 450px;
             text-align: left;
             padding-left: 10px;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
         }
 
         .hand {
@@ -108,9 +113,8 @@
             height: 140px;
             background-size: cover;
             background-position: center;
-            cursor: grab;
-            position: absolute; 
-            touch-action: none;
+            cursor: pointer;
+            position: absolute;
         }
 
         .card.vertical {
@@ -136,7 +140,7 @@
             background-image: url('ura.png');
             background-size: cover;
             background-position: center;
-            cursor: grab;
+            cursor: pointer;
         }
 
         .modal {
@@ -144,7 +148,8 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 400px;
+            width: 800px;
+            height: 600px;
             background: white;
             border: 1px solid black;
             padding: 20px;
@@ -170,56 +175,71 @@
         .topCard {
             grid-area: topCard;
             height: 200px;
+            display: block;
         }
 
         .bottomCard {
             grid-area: bottomCard;
             height: 150px;
-        }
-
-        /* カードメニュー用スタイル */
-        .card-menu {
-            position: absolute;
-            background: white;
-            border: 1px solid black;
-            padding: 5px;
-            z-index: 9999;
-        }
-
-        .card-menu button {
             display: block;
-            margin: 5px 0;
         }
+
+        .image-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, 90px);
+            gap: 10px;
+            justify-content: center;
+            padding: 10px;
+            position: relative;
+        }
+
+        .image-container .card {
+            width: 90px;
+            height: 140px;
+            background-size: cover;
+            background-position: center;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+            position: relative;
+            transform: none;
+            cursor: pointer;
+        }
+
+        .image-container .card.back {
+            background-image: url('ura.png');
+        }
+
     </style>
 </head>
 <body>
     <h1>Generic TCG System</h1>
 
     <div class="container">
-        <div class="field" id="field">
+        <div class="field" id="field" ondragover="allowDrop(event)" ondrop="handleDrop(event)">
             <h3>場</h3>
         </div>
-        <div class="hand" id="hand">
+        <div class="hand" id="hand" ondragover="allowDrop(event)" ondrop="handleDrop(event)">
             <h3>手札</h3>
         </div>
         <div class="deck deck1" id="deck1">
             <h3>山札1</h3>
-            <div class="deck-image" 
-                 onpointerdown="startDeckDrag(event,1)"></div>
+            <div class="deck-image" draggable="true" 
+                 ondragstart="handleDeckDragStart(event,1)"></div>
             <button onclick="addCardToDeck(1)">山札1に追加</button>
             <button onclick="viewDeck(1)">山札1を確認</button>
         </div>
         <div class="deck deck2" id="deck2">
             <h3>山札2</h3>
-            <div class="deck-image" 
-                 onpointerdown="startDeckDrag(event,2)"></div>
+            <div class="deck-image" draggable="true" 
+                 ondragstart="handleDeckDragStart(event,2)"></div>
             <button onclick="addCardToDeck(2)">山札2に追加</button>
             <button onclick="viewDeck(2)">山札2を確認</button>
         </div>
-        <div class="graveyard" id="graveyard">
+        <div class="graveyard" id="graveyard" ondragover="allowDrop(event)" ondrop="handleDrop(event)">
             <h3>墓地</h3>
         </div>
-        <div class="exile" id="exile">
+        <div class="exile" id="exile" ondragover="allowDrop(event)" ondrop="handleDrop(event)">
             <h3>除外地</h3>
         </div>
         <div class="memo">
@@ -227,28 +247,23 @@
             <div class="instructions">
                 <h3>操作方法</h3>
                 <ul>
-                    <li>複数カード追加：CtrlやShiftを使って複数画像ファイルを選択できます。</li>
-                    <li>ドラッグ操作：カードを掴んで移動し、指(またはマウス)を離せばその場所に配置されます。</li>
-                    <li>ダブルクリック(PC)/ダブルタップ(スマホ)：カード上で実行するとメニューが表示され、</li>
-                      <ul>
-                        <li>「表裏反転」を選択で表裏切り替え</li>
-                        <li>「縦横切り替え」を選択で縦横回転</li>
-                      </ul>
+                    <li>シングルタップ：カードの表裏切り替え</li>
+                    <li>ダブルタップ：カードの縦横切り替え</li>
+                    <li>ドラッグ：カードを場や手札、墓地、除外地、山札の上・下エリアなどに自由配置</li>
+                    <li>ドラッグでデッキ領域に戻すと山札にカードを戻せます</li>
                 </ul>
             </div>
+            <button onclick="addFieldBackground()">フィールド背景を追加</button>
+            <button onclick="changeFieldBackground()">フィールド背景を変更</button>
         </div>
 
-        <div class="topCard" id="topCard">
-            山札の1番上
-        </div>
-        <div class="bottomCard" id="bottomCard">
-            山札の1番下
-        </div>
+        <div class="topCard" id="topCard" ondragover="allowDrop(event)" ondrop="handleDrop(event)">山札の1番上</div>
+        <div class="bottomCard" id="bottomCard" ondragover="allowDrop(event)" ondrop="handleDrop(event)">山札の1番下</div>
     </div>
 
     <div class="modal" id="modal">
         <h3>山札内容</h3>
-        <div id="modalContent"></div>
+        <div id="modalContent" class="image-container"></div>
         <button onclick="closeModal()">閉じる</button>
     </div>
     <div class="overlay" id="overlay" onclick="closeModal()"></div>
@@ -259,14 +274,10 @@
             2: [],
         };
 
-        let draggedCard = null; 
-        let startX = 0, startY = 0;
-        let offsetX = 0, offsetY = 0;
-        let currentContainer = null;
+        let draggedCard = null;
 
-        const containerElements = ['field','hand','graveyard','exile','topCard','bottomCard'];
-
-        let cardMenu = null; // メニュー表示用要素
+        let fieldBackgrounds = [];
+        let currentFieldBgIndex = -1;
 
         function addCardToDeck(deckNumber) {
             const input = document.createElement('input');
@@ -302,14 +313,15 @@
             const modalContent = document.getElementById('modalContent');
             modalContent.innerHTML = '';
 
-            decks[deckNumber].forEach((cardData) => {
-                const card = createCardElement(cardData);
-                // 表向きで表示
+            decks[deckNumber].forEach((cardData, index) => {
+                const card = createCardElement(cardData, deckNumber, index);
                 card.classList.remove('back');
                 card.style.backgroundImage = `url(${cardData})`;
+                card.style.position = 'relative'; 
+                card.style.left = '0';
+                card.style.top = '0';
                 modalContent.appendChild(card);
             });
-
             document.getElementById('overlay').style.display = 'block';
             modal.style.display = 'block';
         }
@@ -319,83 +331,46 @@
             document.getElementById('overlay').style.display = 'none';
         }
 
-        function startDeckDrag(event, deckNumber) {
-            if (decks[deckNumber].length === 0) {
-                alert(`山札${deckNumber}にカードがありません！`);
-                return;
-            }
-            const cardData = decks[deckNumber].pop();
-            const card = createCardElement(cardData);
-            document.body.appendChild(card);
-            beginPointerDown(event, card, card.parentElement);
-        }
-
-        function createCardElement(imageSrc) {
+        // deckNumber, deckIndexをオプションで受け取れるように
+        function createCardElement(imageSrc, deckNumber = null, deckIndex = null) {
             const card = document.createElement('div');
             card.className = 'card back vertical'; 
             card.setAttribute('data-image', imageSrc);
-            card.style.left = '0px';
-            card.style.top = '0px';
+            card.draggable = true;
+            card.addEventListener('dragstart', dragStart);
 
-            card.addEventListener('pointerdown', (e) => {
-                if (e.button === 2) return; // 右クリックは無視
-                beginPointerDown(e, card, card.parentElement);
-            });
-            card.addEventListener('dblclick', (e) => {
-                // ダブルクリック/ダブルタップでメニューを表示
-                showCardMenu(card, e.clientX, e.clientY);
-            });
+            if (deckNumber !== null && deckIndex !== null) {
+                card.setAttribute('data-deck-number', deckNumber);
+                card.setAttribute('data-deck-index', deckIndex);
+            }
+
+            card.lastTap = 0;
+            card.tapTimeout = null;
+            card.addEventListener('click', (event) => handleCardTap(event, card));
 
             return card;
         }
 
-        function showCardMenu(card, x, y) {
-            hideCardMenu(); // 既存メニュー非表示
-            cardMenu = document.createElement('div');
-            cardMenu.className = 'card-menu';
-            const flipButton = document.createElement('button');
-            flipButton.textContent = '表裏反転';
-            flipButton.addEventListener('click', () => {
-                flipCard(card);
-                hideCardMenu();
-            });
+        function handleCardTap(event, card) {
+            event.preventDefault();
+            const now = Date.now();
+            const timeSince = now - (card.lastTap || 0);
 
-            const rotateButton = document.createElement('button');
-            rotateButton.textContent = '縦横切り替え';
-            rotateButton.addEventListener('click', () => {
+            if (timeSince < 300 && timeSince > 0) {
+                // ダブルタップ
+                clearTimeout(card.tapTimeout);
                 rotateCard(card);
-                hideCardMenu();
-            });
-
-            cardMenu.appendChild(flipButton);
-            cardMenu.appendChild(rotateButton);
-
-            document.body.appendChild(cardMenu);
-            // メニューをクリック座標付近に配置
-            cardMenu.style.left = x + 'px';
-            cardMenu.style.top = y + 'px';
-
-            // メニュー外クリックで閉じる処理
-            setTimeout(() => {
-                document.body.addEventListener('click', onBodyClick);
-            }, 0);
-        }
-
-        function hideCardMenu() {
-            if (cardMenu) {
-                document.body.removeEventListener('click', onBodyClick);
-                cardMenu.remove();
-                cardMenu = null;
+                card.lastTap = 0;
+            } else {
+                // シングルタップ
+                card.lastTap = now;
+                card.tapTimeout = setTimeout(() => {
+                    toggleCardState(card);
+                }, 300);
             }
         }
 
-        function onBodyClick(e) {
-            if (cardMenu && !cardMenu.contains(e.target)) {
-                hideCardMenu();
-            }
-        }
-
-        function flipCard(card) {
+        function toggleCardState(card) {
             if (card.classList.contains('back')) {
                 card.classList.remove('back');
                 card.style.backgroundImage = `url(${card.getAttribute('data-image')})`;
@@ -415,71 +390,116 @@
             }
         }
 
-        function beginPointerDown(event, card, container) {
-            draggedCard = card;
-            currentContainer = container;
-            card.setPointerCapture(event.pointerId);
-            card.style.cursor = 'grabbing';
+        function dragStart(event) {
+            draggedCard = event.currentTarget;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', '');
 
-            const rect = card.getBoundingClientRect();
-            startX = event.clientX;
-            startY = event.clientY;
-            offsetX = startX - rect.left;
-            offsetY = startY - rect.top;
-
-            card.addEventListener('pointermove', onPointerMove);
-            card.addEventListener('pointerup', onPointerUp);
-        }
-
-        function onPointerMove(event) {
-            if (!draggedCard) return;
-            const moveX = event.clientX - offsetX;
-            const moveY = event.clientY - offsetY;
-            draggedCard.style.left = moveX + 'px';
-            draggedCard.style.top = moveY + 'px';
-        }
-
-        function onPointerUp(event) {
-            if (!draggedCard) return;
-            draggedCard.releasePointerCapture(event.pointerId);
-            draggedCard.style.cursor = 'grab';
-
-            const cardCenterX = event.clientX;
-            const cardCenterY = event.clientY;
-            let targetContainer = findContainerAtPoint(cardCenterX, cardCenterY);
-
-            if (!targetContainer) {
-                targetContainer = currentContainer;
+            // 山札由来のカードならデッキから削除する
+            const deckNumber = draggedCard.getAttribute('data-deck-number');
+            const deckIndex = parseInt(draggedCard.getAttribute('data-deck-index'), 10);
+            if (deckNumber && !isNaN(deckIndex)) {
+                decks[deckNumber].splice(deckIndex, 1);
+                draggedCard.removeAttribute('data-deck-number');
+                draggedCard.removeAttribute('data-deck-index');
             }
+        }
 
-            const rect = targetContainer.getBoundingClientRect();
-            const finalX = event.clientX - rect.left - (draggedCard.offsetWidth / 2);
-            const finalY = event.clientY - rect.top - (draggedCard.offsetHeight / 2);
+        function handleDeckDragStart(event, deckNumber) {
+            if (decks[deckNumber].length === 0) {
+                alert(`山札${deckNumber}にカードがありません！`);
+                event.preventDefault();
+                return;
+            }
+            const cardData = decks[deckNumber].pop();
+            draggedCard = createCardElement(cardData); // ここではデッキ番号やインデックスは付けない
 
             draggedCard.style.position = 'absolute';
-            draggedCard.style.left = finalX + 'px';
-            draggedCard.style.top = finalY + 'px';
+            draggedCard.style.left = '-9999px';
+            draggedCard.style.top = '-9999px';
+            document.body.appendChild(draggedCard);
 
-            if (draggedCard.parentElement !== targetContainer) {
-                targetContainer.appendChild(draggedCard);
-            }
-
-            draggedCard.removeEventListener('pointermove', onPointerMove);
-            draggedCard.removeEventListener('pointerup', onPointerUp);
-            draggedCard = null;
-            currentContainer = null;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setDragImage(draggedCard, 45, 70);
         }
 
-        function findContainerAtPoint(x, y) {
-            let elem = document.elementFromPoint(x, y);
-            while (elem) {
-                if (containerElements.includes(elem.id)) {
-                    return elem;
+        function handleDrop(event) {
+            event.preventDefault();
+            if (draggedCard) {
+                const container = event.currentTarget;
+                if (container.id === 'deck1') {
+                    decks[1].unshift(draggedCard.getAttribute('data-image'));
+                    draggedCard.remove();
+                } else if (container.id === 'deck2') {
+                    decks[2].unshift(draggedCard.getAttribute('data-image'));
+                    draggedCard.remove();
+                } else {
+                    const rect = container.getBoundingClientRect();
+                    const x = event.clientX - rect.left - draggedCard.offsetWidth/2;
+                    const y = event.clientY - rect.top - draggedCard.offsetHeight/2;
+                    draggedCard.style.position = 'absolute';
+                    draggedCard.style.left = x + 'px';
+                    draggedCard.style.top = y + 'px';
+                    container.appendChild(draggedCard);
                 }
-                elem = elem.parentElement;
+
+                draggedCard = null;
             }
-            return null;
         }
+
+        function allowDrop(event) {
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+        }
+
+        function addFieldBackground() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.multiple = true;
+            input.addEventListener('change', async (event) => {
+                const files = event.target.files;
+                if (files.length > 0) {
+                    const promises = [];
+                    for (const file of files) {
+                        const reader = new FileReader();
+                        promises.push(new Promise((resolve, reject) => {
+                            reader.onload = e => resolve(e.target.result);
+                            reader.onerror = e => reject(e);
+                            reader.readAsDataURL(file);
+                        }));
+                    }
+                    const images = await Promise.all(promises);
+                    fieldBackgrounds.push(...images);
+                    if (currentFieldBgIndex === -1 && fieldBackgrounds.length > 0) {
+                        currentFieldBgIndex = 0;
+                        updateFieldBackground();
+                    }
+                }
+            });
+            input.click();
+        }
+
+        function changeFieldBackground() {
+            if (fieldBackgrounds.length > 0) {
+                currentFieldBgIndex = (currentFieldBgIndex + 1) % fieldBackgrounds.length;
+                updateFieldBackground();
+            } else {
+                alert('まだフィールド背景がありません！「フィールド背景を追加」ボタンで追加してください。');
+            }
+        }
+
+        function updateFieldBackground() {
+            const field = document.getElementById('field');
+            const bg = fieldBackgrounds[currentFieldBgIndex];
+            field.style.backgroundImage = `url(${bg})`;
+        }
+
+        document.querySelectorAll('.field, .hand, .graveyard, .exile, .topCard, .bottomCard, .deck1, .deck2')
+            .forEach(area => {
+                area.addEventListener('dragover', allowDrop);
+                area.addEventListener('drop', handleDrop);
+            });
     </script>
 </body>
 </html>
